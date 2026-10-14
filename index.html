@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lista de Compras — Mini Mercado</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#111114;
+  --muted:#54545e;
+  --paper:#ffffff;
+  --rule:#e6e6e9;
+  --rule-strong:#111114;
+  --accent:#002fa7;
+  --accent-soft:#eef2fb;
+  --ok:#0b7a3b;
+  --ok-bg:#eaf6ee;
+  --skip:#6b4a00;
+  --skip-bg:#fdf3d0;
+  --danger:#b3261e;
+  --radius:0;
+  --z-sticky:10;
+  --z-backdrop:20;
+  --z-sheet:30;
+  --z-toast:40;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  background:var(--paper);color:var(--ink);
+  font-size:16px;line-height:1.4;
+  padding-bottom:calc(84px + env(safe-area-inset-bottom));
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- Cabeçalho ---------- */
+header{
+  position:sticky;top:0;z-index:var(--z-sticky);
+  background:var(--paper);
+  border-bottom:2px solid var(--rule-strong);
+  padding:14px 16px 0 16px;
+}
+.hd-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.hd-title{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.hd-menu{font-size:22px;line-height:1;padding:6px 10px;min-width:44px;min-height:44px}
+.hd-progress{display:flex;align-items:baseline;justify-content:space-between;margin-top:2px}
+.hd-count{font-size:13px;color:var(--muted)}
+.hd-count b{color:var(--ink);font-size:15px}
+.bar{height:4px;background:var(--rule);margin:10px -16px 0 -16px}
+.bar-fill{height:100%;background:var(--accent);width:0%;transition:width .3s cubic-bezier(.22,1,.36,1)}
+
+/* ---------- Busca e abas ---------- */
+.tools{position:sticky;top:0;z-index:var(--z-sticky);background:var(--paper)}
+.search-wrap{padding:10px 16px 0 16px}
+.search{
+  width:100%;height:46px;padding:0 14px;
+  border:1px solid var(--rule);background:#fafafa;
+  font-size:16px;
+}
+.search:focus{outline:2px solid var(--accent);outline-offset:-1px;background:var(--paper)}
+.tabs{display:flex;border-bottom:1px solid var(--rule);margin-top:8px}
+.tab{
+  flex:1;min-height:48px;padding:10px 4px 12px 4px;
+  font-size:14px;font-weight:600;color:var(--muted);
+  border-bottom:3px solid transparent;
+}
+.tab .n{display:block;font-size:18px;font-weight:700;color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tab[aria-selected="true"] .n{color:var(--accent)}
+
+/* ---------- Itens ---------- */
+.list{list-style:none}
+.item{border-bottom:1px solid var(--rule);padding:14px 16px 16px 16px}
+.item-main{display:flex;gap:14px;align-items:stretch}
+.item-info{flex:1;min-width:0}
+.item-nome{font-size:16px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.item-cod{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12.5px;letter-spacing:.07em;color:var(--muted);margin-top:5px;
+}
+.item-precos{margin-top:7px;font-size:13.5px;color:var(--muted)}
+.item-precos b{color:var(--ink)}
+.preco-menor{color:var(--accent);font-weight:700}
+.item-qtd{
+  display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+  border-left:1px solid var(--rule);padding-left:14px;min-width:76px;
+}
+.item-qtd .q{font-size:34px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.item-qtd .u{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.08em}
+.item-acoes{display:flex;gap:8px;margin-top:12px}
+.btn{
+  flex:1;min-height:48px;font-size:15px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn-pegar{background:var(--accent);color:#fff}
+.btn-pegar:active{background:#00227d}
+.btn-nao{background:var(--paper);border:1px solid var(--ink)}
+.btn-nao:active{background:#f2f2f2}
+
+.item.done{background:#fbfbfc}
+.item-status{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tag{font-size:13.5px;font-weight:700;padding:7px 10px}
+.tag-ok{background:var(--ok-bg);color:var(--ok)}
+.tag-skip{background:var(--skip-bg);color:var(--skip)}
+.btn-editar{font-size:14px;font-weight:600;color:var(--accent);min-height:44px;padding:0 8px;text-decoration:underline;text-underline-offset:3px}
+.item.done .item-nome{color:var(--muted)}
+.item.skip .item-nome{text-decoration:line-through;text-decoration-thickness:1px}
+
+.empty{padding:56px 24px;text-align:left;color:var(--muted);font-size:15px;line-height:1.55}
+.empty b{color:var(--ink)}
+
+/* ---------- Tela de importação ---------- */
+.import{padding:28px 20px;max-width:520px;margin:0 auto}
+.import h1{font-size:26px;font-weight:700;letter-spacing:-.015em;line-height:1.15}
+.import .rule{height:2px;background:var(--rule-strong);margin:16px 0 20px 0}
+.import p{font-size:15px;color:var(--muted);line-height:1.55;margin-bottom:10px}
+.import p b{color:var(--ink)}
+.btn-import{
+  width:100%;min-height:58px;background:var(--accent);color:#fff;
+  font-size:17px;font-weight:700;margin-top:18px;
+}
+.import-hint{margin-top:16px;font-size:13.5px;color:var(--muted);line-height:1.6}
+.import-err{margin-top:14px;padding:12px;background:#fdecea;color:var(--danger);font-size:14px;line-height:1.5;display:none}
+
+/* ---------- Barra inferior ---------- */
+.footbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:var(--z-sticky);
+  background:var(--paper);border-top:2px solid var(--rule-strong);
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
+  display:none;
+}
+.btn-export{width:100%;min-height:54px;background:var(--ink);color:#fff;font-size:16px;font-weight:700}
+.btn-export:disabled{opacity:.35}
+
+/* ---------- Sheet (painel inferior) ---------- */
+.backdrop{
+  position:fixed;inset:0;background:rgba(17,17,20,.45);
+  z-index:var(--z-backdrop);opacity:0;pointer-events:none;transition:opacity .2s ease-out;
+}
+.backdrop.open{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:var(--z-sheet);
+  background:var(--paper);border-top:2px solid var(--rule-strong);
+  padding:18px 16px calc(18px + env(safe-area-inset-bottom)) 16px;
+  transform:translateY(105%);transition:transform .28s cubic-bezier(.22,1,.36,1);
+  max-height:88dvh;overflow-y:auto;
+}
+.sheet.open{transform:translateY(0)}
+.sheet h2{font-size:17px;font-weight:700;line-height:1.3}
+.sheet .sub{font-size:13.5px;color:var(--muted);margin-top:3px}
+.sheet-sec{margin-top:18px}
+.sheet-lbl{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:8px}
+.stepper{display:flex;align-items:stretch;border:1px solid var(--ink)}
+.step-btn{width:64px;min-height:56px;font-size:26px;font-weight:600}
+.step-btn:active{background:#f0f0f0}
+.step-val{
+  flex:1;text-align:center;border:0;border-left:1px solid var(--rule);border-right:1px solid var(--rule);
+  font-size:26px;font-weight:700;min-height:56px;
+}
+.step-val:focus{outline:2px solid var(--accent);outline-offset:-2px}
+.preco-input{width:100%;min-height:54px;border:1px solid var(--ink);padding:0 14px;font-size:20px;font-weight:600}
+.preco-input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.ref-precos{margin-top:8px;font-size:13.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  border:1px solid var(--ink);padding:12px 16px;font-size:15px;font-weight:600;min-height:48px;
+}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.motivo-outro{width:100%;min-height:50px;border:1px solid var(--ink);padding:0 12px;font-size:16px;margin-top:10px;display:none}
+.sheet-acoes{display:flex;gap:8px;margin-top:22px}
+.btn-confirmar{flex:2;min-height:54px;background:var(--accent);color:#fff;font-size:16px;font-weight:700}
+.btn-confirmar:disabled{opacity:.35}
+.btn-cancelar{flex:1;min-height:54px;border:1px solid var(--rule);font-size:15px;font-weight:600;color:var(--muted)}
+.btn-voltar-pend{width:100%;min-height:50px;margin-top:10px;border:1px solid var(--ink);font-size:15px;font-weight:600}
+.btn-danger{width:100%;min-height:50px;margin-top:10px;border:1px solid var(--danger);color:var(--danger);font-size:15px;font-weight:600}
+
+/* ---------- Leitor de código de barras ---------- */
+.search-row{display:flex;gap:8px}
+.search-row .search{flex:1}
+.btn-scan{
+  width:52px;min-height:46px;border:1px solid var(--ink);background:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-scan:active{background:#f2f2f2}
+.btn-scan svg{width:22px;height:22px}
+.campo-linha{display:flex;gap:8px}
+.campo-linha .campo{flex:1}
+.btn-scan-campo{
+  width:60px;min-height:54px;border:1px solid var(--ink);background:var(--paper);
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-scan-campo:active{background:#f2f2f2}
+.btn-scan-campo svg{width:24px;height:24px}
+.scanner{
+  position:fixed;inset:0;z-index:50;background:#000;display:none;
+  flex-direction:column;
+}
+.scanner.open{display:flex}
+.scan-video{flex:1;width:100%;object-fit:cover;background:#000}
+.scan-mira{
+  position:absolute;left:8%;right:8%;top:50%;transform:translateY(-50%);
+  height:150px;border:2px solid #fff;
+}
+.scan-mira::after{
+  content:'';position:absolute;left:0;right:0;top:50%;height:2px;background:var(--accent);
+}
+.scan-msg{
+  position:absolute;left:0;right:0;top:calc(50% + 96px);text-align:center;
+  color:#fff;font-size:14.5px;font-weight:600;padding:0 24px;line-height:1.5;
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+}
+.scan-topo{
+  position:absolute;left:0;right:0;top:0;padding:calc(14px + env(safe-area-inset-top)) 16px 14px 16px;
+  color:#fff;font-size:15px;font-weight:700;background:linear-gradient(rgba(0,0,0,.65),transparent);
+}
+.scan-rodape{
+  position:absolute;left:0;right:0;bottom:0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+  background:linear-gradient(transparent,rgba(0,0,0,.75));
+}
+.btn-scan-fechar{width:100%;min-height:54px;background:var(--paper);color:var(--ink);font-size:16px;font-weight:700}
+.btn-scan-manual{width:100%;min-height:48px;color:#fff;font-size:15px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- Produto novo e substituição ---------- */
+.btn-trocar{background:var(--paper);border:1px solid var(--ink)}
+.btn-trocar:active{background:#f2f2f2}
+.item-acoes .btn{font-size:14.5px}
+.tag-troca{background:#e8eefb;color:var(--accent)}
+.selo-novo{
+  display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;background:var(--ink);color:#fff;padding:3px 6px;margin-bottom:6px;
+}
+.item-troca{margin-top:7px;font-size:13.5px;color:var(--muted);line-height:1.45}
+.item-troca b{color:var(--ink)}
+.campo{width:100%;min-height:54px;border:1px solid var(--ink);padding:0 14px;font-size:17px}
+.campo:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.risco{text-decoration:line-through;text-decoration-thickness:1px}
+.footbar-row{display:flex;gap:8px}
+.btn-novo{
+  flex:1;min-height:54px;border:1px solid var(--ink);
+  background:var(--paper);font-size:15px;font-weight:700;
+}
+.btn-novo:active{background:#f2f2f2}
+.footbar .btn-export{flex:1.4}
+
+/* ---------- Sala / sincronização ---------- */
+.sala-info{
+  font-size:12px;color:var(--accent);font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;margin-top:6px;
+}
+.sala-info.off{color:var(--skip)}
+.codigo-grande{
+  font-size:44px;font-weight:700;letter-spacing:.16em;
+  border:2px solid var(--rule-strong);padding:18px 10px;text-align:center;margin-top:10px;
+}
+.codigo-input{
+  width:100%;min-height:60px;border:1px solid var(--ink);padding:0 14px;
+  font-size:28px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;text-align:center;
+}
+.codigo-input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.nome-input{width:100%;min-height:54px;border:1px solid var(--ink);padding:0 14px;font-size:17px}
+.nome-input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.item-por{font-size:12.5px;color:var(--muted);font-weight:600}
+
+/* ---------- Aviso de persistência ---------- */
+.aviso{
+  background:#fdf3d0;color:#6b4a00;border-bottom:1px solid var(--rule);
+  padding:12px 16px;font-size:13.5px;line-height:1.5;
+}
+.aviso b{color:#4a3300}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;left:16px;right:16px;bottom:calc(96px + env(safe-area-inset-bottom));
+  z-index:var(--z-toast);background:var(--ink);color:#fff;
+  padding:14px 16px;font-size:14.5px;font-weight:600;
+  opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateY(0)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none !important;animation:none !important}
+}
+@media (min-width:640px){
+  .list,.tools,header .hd-top,header .hd-progress{max-width:640px;margin-left:auto;margin-right:auto}
+  .footbar>button{max-width:608px;margin:0 auto;display:flex}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ TELA DE IMPORTAÇÃO ============ -->
+<section id="telaImport" class="import" hidden>
+  <h1>Lista de Compras<br>do Mini Mercado</h1>
+  <div class="rule"></div>
+  <p><b>Como funciona:</b> importe a planilha com a lista de reposição. Cada produto aparece com quantidade, código de barras e os preços de referência. No mercado, é só marcar o que pegou.</p>
+  <button class="btn-import" id="btnEscolher">Escolher planilha (.xlsx)</button>
+  <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+  <input type="file" id="backupInput" accept=".json,application/json" hidden>
+  <div class="import-err" id="importErr"></div>
+  <p class="import-hint">
+    Aceita o <b>modelo de lista</b> ou a <b>planilha de precificação completa</b> (o app lê a aba "Lista de Reposição").
+    Colunas esperadas: CÓD BARRAS, PRODUTO, QTD, ÚLTIMO CUSTO, MENOR CUSTO.
+  </p>
+  <button class="btn-editar" id="importRestaurar" style="margin-top:6px">Tenho um backup para restaurar</button>
+
+  <div class="rule" style="margin:26px 0 20px 0"></div>
+  <p><b>Entrar numa compra em andamento:</b> se a outra pessoa já começou, peça o código de 5 letras que aparece no topo do celular dela.</p>
+  <input class="codigo-input" id="entrarCodigo" maxlength="5" placeholder="ABC12" autocomplete="off" autocapitalize="characters" spellcheck="false" style="margin-top:10px">
+  <input class="nome-input" id="entrarNome" placeholder="Seu nome" autocomplete="off" style="margin-top:8px">
+  <button class="btn-import" id="btnEntrar" style="margin-top:10px">Entrar na compra</button>
+</section>
+
+<!-- ============ TELA DA LISTA ============ -->
+<div id="telaLista" hidden>
+  <header>
+    <div class="hd-top">
+      <div class="hd-title">Lista de compras</div>
+      <button class="hd-menu" id="btnMenu" aria-label="Opções da lista">⋯</button>
+    </div>
+    <div class="hd-progress">
+      <span class="hd-count" id="hdData"></span>
+      <span class="hd-count num"><b id="hdFeitos">0</b> de <b id="hdTotal">0</b> itens</span>
+    </div>
+    <div class="sala-info" id="salaInfo" hidden></div>
+    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+  </header>
+
+  <div class="aviso" id="avisoPersist" hidden>
+    <b>Atenção:</b> este aparelho não está conseguindo salvar a lista sozinho.
+    Use <b>⋯ → Salvar backup</b> de vez em quando para não perder o trabalho.
+  </div>
+
+  <div class="tools">
+    <div class="search-wrap">
+      <div class="search-row">
+        <input type="search" class="search" id="busca" placeholder="Buscar produto ou código" autocomplete="off">
+        <button class="btn-scan" id="btnScanBusca" aria-label="Escanear código de barras">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="pendente" aria-selected="true"><span class="n num" id="nPend">0</span>Faltam</button>
+      <button class="tab" role="tab" data-tab="comprado" aria-selected="false"><span class="n num" id="nComp">0</span>Carrinho</button>
+      <button class="tab" role="tab" data-tab="nao" aria-selected="false"><span class="n num" id="nNao">0</span>Não levei</button>
+    </div>
+  </div>
+
+  <ul class="list" id="lista"></ul>
+  <div class="empty" id="vazio" hidden></div>
+
+  <div class="footbar" id="footbar">
+    <div class="footbar-row">
+      <button class="btn-novo" id="btnNovo">+ Produto novo</button>
+      <button class="btn-export" id="btnExport">Exportar planilha</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SHEETS ============ -->
+<div class="backdrop" id="backdrop"></div>
+
+<div class="sheet" id="sheetPegar" role="dialog" aria-modal="true" aria-labelledby="pegarTitulo">
+  <h2 id="pegarTitulo"></h2>
+  <div class="sub num" id="pegarCod"></div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="qtdVal">Quantidade que pegou</label>
+    <div class="stepper">
+      <button class="step-btn" id="qtdMenos" aria-label="Diminuir quantidade">−</button>
+      <input class="step-val num" id="qtdVal" inputmode="numeric" pattern="[0-9]*">
+      <button class="step-btn" id="qtdMais" aria-label="Aumentar quantidade">+</button>
+    </div>
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="precoVal">Preço pago por unidade (opcional)</label>
+    <input class="preco-input num" id="precoVal" inputmode="decimal" placeholder="R$ 0,00">
+    <div class="ref-precos" id="precoRef"></div>
+  </div>
+  <div class="sheet-acoes">
+    <button class="btn-cancelar" data-fechar>Cancelar</button>
+    <button class="btn-confirmar" id="pegarConfirmar">Pôr no carrinho</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetNao" role="dialog" aria-modal="true" aria-labelledby="naoTitulo">
+  <h2 id="naoTitulo"></h2>
+  <div class="sub">Por que este item não vai?</div>
+  <div class="sheet-sec">
+    <div class="chips" id="motivoChips">
+      <button class="chip" data-motivo="Não tinha no estoque">Não tinha</button>
+      <button class="chip" data-motivo="Preço muito alto">Preço alto</button>
+      <button class="chip" data-motivo="Não encontrei">Não encontrei</button>
+      <button class="chip" data-motivo="__outro__">Outro</button>
+    </div>
+    <input class="motivo-outro" id="motivoOutro" placeholder="Escreva o motivo">
+  </div>
+  <div class="sheet-acoes">
+    <button class="btn-cancelar" data-fechar>Cancelar</button>
+    <button class="btn-confirmar" id="naoConfirmar" disabled>Confirmar</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetNovo" role="dialog" aria-modal="true" aria-labelledby="novoTitulo">
+  <h2 id="novoTitulo">Produto fora da lista</h2>
+  <div class="sub">Algo que você resolveu levar e não estava na planilha.</div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="novoNome">Produto</label>
+    <input class="campo" id="novoNome" placeholder="Nome do produto" autocomplete="off">
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="novoCod">Código de barras (opcional)</label>
+    <div class="campo-linha">
+      <input class="campo num" id="novoCod" inputmode="numeric" autocomplete="off">
+      <button class="btn-scan-campo" id="btnScanNovo" aria-label="Escanear código de barras">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="novoQtd">Quantidade que pegou</label>
+    <div class="stepper">
+      <button class="step-btn step-menos" data-alvo="novoQtd" aria-label="Diminuir quantidade">-</button>
+      <input class="step-val num" id="novoQtd" inputmode="numeric" pattern="[0-9]*" value="1">
+      <button class="step-btn step-mais" data-alvo="novoQtd" aria-label="Aumentar quantidade">+</button>
+    </div>
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="novoPreco">Preço pago por unidade (opcional)</label>
+    <input class="preco-input num" id="novoPreco" inputmode="decimal" placeholder="R$ 0,00">
+  </div>
+  <div class="sheet-acoes">
+    <button class="btn-cancelar" data-fechar>Cancelar</button>
+    <button class="btn-confirmar" id="novoConfirmar">Pôr no carrinho</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetTroca" role="dialog" aria-modal="true" aria-labelledby="trocaTitulo">
+  <h2 id="trocaTitulo"></h2>
+  <div class="sub">Qual produto você levou no lugar deste?</div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="trocaNome">Produto levado</label>
+    <input class="campo" id="trocaNome" placeholder="Nome do substituto" autocomplete="off">
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="trocaCod">Código de barras (opcional)</label>
+    <div class="campo-linha">
+      <input class="campo num" id="trocaCod" inputmode="numeric" autocomplete="off">
+      <button class="btn-scan-campo" id="btnScanTroca" aria-label="Escanear código de barras">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="trocaQtd">Quantidade que pegou</label>
+    <div class="stepper">
+      <button class="step-btn step-menos" data-alvo="trocaQtd" aria-label="Diminuir quantidade">-</button>
+      <input class="step-val num" id="trocaQtd" inputmode="numeric" pattern="[0-9]*">
+      <button class="step-btn step-mais" data-alvo="trocaQtd" aria-label="Aumentar quantidade">+</button>
+    </div>
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="trocaPreco">Preço pago por unidade (opcional)</label>
+    <input class="preco-input num" id="trocaPreco" inputmode="decimal" placeholder="R$ 0,00">
+    <div class="ref-precos" id="trocaRef"></div>
+  </div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl">Por que trocou</label>
+    <div class="chips" id="trocaChips">
+      <button class="chip" data-motivo="Preço muito alto">Preço alto</button>
+      <button class="chip" data-motivo="Não tinha a marca da lista">Não tinha a marca</button>
+      <button class="chip" data-motivo="__outro__">Outro</button>
+    </div>
+    <input class="motivo-outro" id="trocaOutro" placeholder="Escreva o motivo">
+  </div>
+  <div class="sheet-acoes">
+    <button class="btn-cancelar" data-fechar>Cancelar</button>
+    <button class="btn-confirmar" id="trocaConfirmar">Confirmar troca</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetDone" role="dialog" aria-modal="true" aria-labelledby="doneTitulo">
+  <h2 id="doneTitulo"></h2>
+  <div class="sub" id="doneInfo"></div>
+  <button class="btn-voltar-pend" id="doneEditar">Alterar quantidade ou preço</button>
+  <button class="btn-voltar-pend" id="doneVoltar">Voltar para "Faltam"</button>
+  <div class="sheet-acoes">
+    <button class="btn-cancelar" data-fechar style="flex:1">Fechar</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetModo" role="dialog" aria-modal="true" aria-labelledby="modoTitulo">
+  <h2 id="modoTitulo">Lista importada</h2>
+  <div class="sub" id="modoSub"></div>
+  <div class="sheet-sec">
+    <label class="sheet-lbl" for="modoNome">Seu nome</label>
+    <input class="nome-input" id="modoNome" placeholder="Ex.: Ana" autocomplete="off">
+  </div>
+  <button class="btn-voltar-pend" id="modoDupla" style="margin-top:18px">Comprar em dupla — gerar código</button>
+  <button class="btn-voltar-pend" id="modoSozinho">Comprar sozinho neste aparelho</button>
+</div>
+
+<div class="sheet" id="sheetConvite" role="dialog" aria-modal="true" aria-labelledby="conviteTitulo">
+  <h2 id="conviteTitulo">Código da compra</h2>
+  <div class="sub">A outra pessoa abre o mesmo app, digita este código e o nome dela.</div>
+  <div class="codigo-grande num" id="conviteCodigo"></div>
+  <button class="btn-voltar-pend" id="conviteCopiar" style="margin-top:14px">Copiar código</button>
+  <div class="sheet-acoes">
+    <button class="btn-confirmar" data-fechar style="flex:1">Começar a comprar</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetMenu" role="dialog" aria-modal="true" aria-labelledby="menuTitulo">
+  <h2 id="menuTitulo">Opções da lista</h2>
+  <div class="sub">A lista fica salva neste aparelho até você começar uma nova.</div>
+  <button class="btn-voltar-pend" id="menuConvidar" hidden>Ver código para convidar</button>
+  <button class="btn-voltar-pend" id="menuAbrirDupla" hidden>Abrir compra em dupla</button>
+  <button class="btn-voltar-pend" id="menuExportar">Exportar planilha da compra</button>
+  <button class="btn-voltar-pend" id="menuBackup">Salvar backup (arquivo)</button>
+  <button class="btn-voltar-pend" id="menuRestaurar">Restaurar backup</button>
+  <button class="btn-danger" id="menuNova">Apagar tudo e importar nova lista</button>
+  <div class="sheet-acoes">
+    <button class="btn-cancelar" data-fechar style="flex:1">Fechar</button>
+  </div>
+</div>
+
+<div class="scanner" id="scanner" role="dialog" aria-modal="true" aria-label="Leitor de código de barras">
+  <video class="scan-video" id="scanVideo" playsinline muted></video>
+  <div class="scan-mira" id="scanMira"></div>
+  <div class="scan-topo" id="scanTopo">Escanear código de barras</div>
+  <div class="scan-msg" id="scanMsg"></div>
+  <div class="scan-rodape">
+    <button class="btn-scan-manual" id="scanManual">Digitar o código na mão</button>
+    <button class="btn-scan-fechar" id="scanFechar">Fechar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* ================= Estado ================= */
+const KEY = 'lista_reposicao_v1';
+let state = null;           // {criadaEm, itens:[...]}
+let abaAtiva = 'pendente';
+let itemAtual = null;       // id do item aberto no sheet
+let motivoSel = null;
+let modoEdicao = false;
+
+const $ = s => document.querySelector(s);
+const fmtBRL = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
+const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+
+/* --- Persistência em camadas: localStorage é a base; window.storage é bônus --- */
+let persistOK = true;
+
+function temLocal(){
+  try{
+    localStorage.setItem('__t','1');
+    localStorage.removeItem('__t');
+    return true;
+  }catch(e){ return false; }
+}
+
+function salvarSync(){
+  if(!state) return;
+  try{
+    state.fila   = Array.isArray(fila)   ? fila   : [];
+    state.filaEx = Array.isArray(filaEx) ? filaEx : [];
+    localStorage.setItem(KEY, JSON.stringify(state));
+    if(!persistOK){ persistOK = true; atualizarAvisoPersistencia(); }
+  }catch(e){
+    if(persistOK){ persistOK = false; atualizarAvisoPersistencia(); }
+  }
+}
+
+async function salvar(){
+  salvarSync();
+  try{
+    if(window.storage && window.storage.set) await window.storage.set(KEY, JSON.stringify(state));
+  }catch(e){}
+}
+
+async function carregar(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){
+      state = JSON.parse(raw);
+      fila   = Array.isArray(state.fila)   ? state.fila   : [];
+      filaEx = Array.isArray(state.filaEx) ? state.filaEx : [];
+      return true;
+    }
+  }catch(e){}
+  try{
+    if(window.storage && window.storage.get){
+      const r = await window.storage.get(KEY);
+      if(r && r.value){ state = JSON.parse(r.value); salvarSync(); return true; }
+    }
+  }catch(e){}
+  return false;
+}
+
+async function limparSalvo(){
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  try{ if(window.storage && window.storage.delete) await window.storage.delete(KEY); }catch(e){}
+}
+
+function atualizarAvisoPersistencia(){
+  const el = $('#avisoPersist');
+  if(!el) return;
+  el.hidden = persistOK;
+}
+
+/* Salva também ao sair, minimizar ou trocar de aba */
+window.addEventListener('pagehide', salvarSync);
+window.addEventListener('beforeunload', salvarSync);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') salvarSync(); });
+
+/* --- Backup manual em arquivo (rede de segurança) --- */
+function baixarBackup(){
+  if(!state){ toast('Nada para salvar ainda'); return; }
+  const blob = new Blob([JSON.stringify(state)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  a.href = url;
+  a.download = 'backup_lista_'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('Backup salvo nos seus arquivos');
+}
+
+function restaurarBackup(file){
+  const r = new FileReader();
+  r.onload = e => {
+    try{
+      const dados = JSON.parse(e.target.result);
+      if(!dados || !Array.isArray(dados.itens) || !dados.itens.length) throw new Error('vazio');
+      state = dados;
+      salvar(); limparSheets(); mostrarLista();
+      toast('Backup restaurado — '+dados.itens.length+' itens');
+    }catch(err){
+      toast('Não consegui ler esse arquivo de backup');
+    }
+  };
+  r.readAsText(file);
+}
+
+/* ================= Sincronização (Supabase) ================= */
+const SUPABASE_URL  = 'https://qtsgphezomfeuvllcqje.supabase.co/rest/v1';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0c2dwaGV6b21mZXV2bGxjcWplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjYxNDgsImV4cCI6MjA5OTY0MjE0OH0.dfeERw764DJI9h7-VnRu6vZcvfGHvQnWMVYTZWS8WhA';
+
+const INTERVALO_SYNC = 4000;   // ms entre cada checagem
+let timerSync = null;
+let sincronizando = false;
+let ultimoOk = null;           // hora do último sync bem-sucedido
+let fila = [];                 // ids de marcações ainda não enviadas
+let filaEx = [];               // ids de produtos novos ainda não enviados
+
+function sbHeaders(extra){
+  return Object.assign({
+    'apikey': SUPABASE_ANON,
+    'Authorization': 'Bearer '+SUPABASE_ANON,
+    'Content-Type': 'application/json'
+  }, extra||{});
+}
+
+async function sb(caminho, opcoes){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 12000);
+  opcoes = opcoes || {};
+  const headersFinais = sbHeaders(opcoes.headers || {});
+  try{
+    const r = await fetch(SUPABASE_URL+caminho, Object.assign({signal:ctrl.signal}, opcoes, {headers: headersFinais}));
+    if(!r.ok){
+      const txt = await r.text().catch(()=> '');
+      throw new Error('HTTP '+r.status+(txt?' — '+txt.slice(0,180):''));
+    }
+    const corpo = await r.text();
+    return corpo ? JSON.parse(corpo) : null;
+  } finally { clearTimeout(t); }
+}
+
+function gerarCodigo(){
+  // Sem O/0, I/1, S/5 — para ninguém errar ao ditar o código no corredor
+  const alfabeto = 'ABCDEFGHJKLMNPQRTUVWXYZ23456789';
+  let c = '';
+  for(let i=0;i<5;i++) c += alfabeto[Math.floor(Math.random()*alfabeto.length)];
+  return c;
+}
+
+/* --- Criar sala a partir da lista já importada --- */
+async function criarSala(nome){
+  for(let tentativa=0; tentativa<5; tentativa++){
+    const codigo = gerarCodigo();
+    try{
+      await sb('/salas', {
+        method:'POST',
+        headers: sbHeaders({'Prefer':'return=minimal'}),
+        body: JSON.stringify({codigo, itens: state.itens.map(i=>({
+          id:i.id, cod:i.cod, nome:i.nome, qtd:i.qtd, ultimo:i.ultimo, menor:i.menor
+        }))})
+      });
+      state.sala = codigo;
+      state.nome = nome;
+      state.desde = '1970-01-01T00:00:00Z';
+      state.desdeEx = '1970-01-01T00:00:00Z';
+      await salvar();
+      // Sobe o que já estava marcado antes de abrir a sala
+      state.itens.forEach(i=>{
+        if(i.novo){ i.por = i.por || nome; if(!filaEx.includes(i.id)) filaEx.push(i.id); }
+        if(i.status!=='pendente'){ i.por = i.por || nome; enfileirar(i.id); }
+      });
+      iniciarSync();
+      return codigo;
+    }catch(e){
+      if(String(e.message).includes('409') || String(e.message).includes('duplicate')) continue;
+      throw e;
+    }
+  }
+  throw new Error('Não consegui criar a sala. Tente de novo.');
+}
+
+/* --- Entrar numa sala existente --- */
+async function entrarSala(codigo, nome){
+  codigo = String(codigo||'').trim().toUpperCase();
+  if(codigo.length<4) throw new Error('Código inválido.');
+  const salas = await sb('/salas?codigo=eq.'+encodeURIComponent(codigo)+'&select=codigo,criada_em,itens');
+  if(!salas || !salas.length) throw new Error('Não achei nenhuma compra com o código '+codigo+'.');
+  const s = salas[0];
+  state = {
+    criadaEm: s.criada_em,
+    sala: s.codigo,
+    nome: nome,
+    desde: '1970-01-01T00:00:00Z',
+    desdeEx: '1970-01-01T00:00:00Z',
+    itens: s.itens.map(i=>Object.assign({
+      status:'pendente', qtdComprada:null, precoPago:null, motivo:'', por:''
+    }, i))
+  };
+  fila = []; filaEx = [];
+  await puxarExtras();
+  await puxarMarcacoes();
+  await salvar();
+  iniciarSync();
+  return state.itens.length;
+}
+
+/* --- Envio: cada item marcado vira uma linha --- */
+function enfileirar(id){
+  if(!fila.includes(id)) fila.push(id);
+}
+
+async function empurrarFila(){
+  if(!state || !state.sala || !fila.length) return;
+  const ids = fila.slice();
+  const corpo = ids.map(id=>{
+    const i = state.itens.find(x=>x.id===id);
+    const levou = (i.status==='comprado' || i.status==='substituido');
+    return {
+      sala: state.sala, item_id: i.id, status: i.status,
+      qtd_comprada: levou ? i.qtdComprada : null,
+      preco_pago:   levou ? i.precoPago   : null,
+      motivo: i.motivo || null,
+      sub_nome: i.status==='substituido' ? (i.subNome||null) : null,
+      sub_cod:  i.status==='substituido' ? (i.subCod ||null) : null,
+      por: i.por || state.nome || null
+    };
+  });
+  await sb('/marcacoes', {
+    method:'POST',
+    headers: sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body: JSON.stringify(corpo)
+  });
+  fila = fila.filter(id=>!ids.includes(id));
+}
+
+/* --- Produtos pegos fora da lista --- */
+async function empurrarExtras(){
+  if(!state || !state.sala || !filaEx.length) return;
+  const ids = filaEx.slice();
+  const corpo = ids.map(id=>{
+    const i = state.itens.find(x=>x.id===id);
+    return { sala: state.sala, item_id: i.id, cod: i.cod||null,
+             nome: i.nome, qtd: i.qtd||1, criado_por: i.por || state.nome || null };
+  });
+  await sb('/extras', {
+    method:'POST',
+    headers: sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body: JSON.stringify(corpo)
+  });
+  filaEx = filaEx.filter(id=>!ids.includes(id));
+}
+
+async function puxarExtras(){
+  if(!state || !state.sala) return false;
+  const desde = state.desdeEx || '1970-01-01T00:00:00Z';
+  const linhas = await sb('/extras?sala=eq.'+encodeURIComponent(state.sala)+
+    '&atualizado_em=gt.'+encodeURIComponent(desde)+
+    '&select=item_id,cod,nome,qtd,criado_por,atualizado_em&order=atualizado_em.asc');
+  if(!linhas || !linhas.length) return false;
+  let mudou = false;
+  linhas.forEach(e=>{
+    if(Date.parse(e.atualizado_em) > Date.parse(state.desdeEx || 0)) state.desdeEx = e.atualizado_em;
+    if(state.itens.some(x=>x.id===e.item_id)) return;   // já conheço este produto
+    state.itens.push({
+      id:e.item_id, cod:e.cod||'', nome:e.nome, qtd:e.qtd||1,
+      ultimo:null, menor:null, novo:true,
+      status:'pendente', qtdComprada:null, precoPago:null,
+      motivo:'', subNome:'', subCod:'', por:e.criado_por||''
+    });
+    mudou = true;
+  });
+  return mudou;
+}
+
+/* --- Recebimento: só o que mudou desde a última checagem --- */
+async function puxarMarcacoes(){
+  if(!state || !state.sala) return false;
+  const desde = state.desde || '1970-01-01T00:00:00Z';
+  const marcs = await sb('/marcacoes?sala=eq.'+encodeURIComponent(state.sala)+
+    '&atualizado_em=gt.'+encodeURIComponent(desde)+
+    '&select=item_id,status,qtd_comprada,preco_pago,motivo,sub_nome,sub_cod,por,atualizado_em&order=atualizado_em.asc');
+  if(!marcs || !marcs.length) return false;
+  let mudou = false;
+  marcs.forEach(m=>{
+    if(fila.includes(m.item_id)) return;          // minha alteração ainda não subiu: ela manda
+    const i = state.itens.find(x=>x.id===m.item_id);
+    if(!i) return;
+    const antes = i.status+'|'+i.qtdComprada+'|'+i.precoPago+'|'+i.motivo+'|'+i.subNome;
+    i.status      = m.status;
+    i.qtdComprada = m.qtd_comprada;
+    i.precoPago   = m.preco_pago!=null ? Number(m.preco_pago) : null;
+    i.motivo      = m.motivo || '';
+    i.subNome     = m.sub_nome || '';
+    i.subCod      = m.sub_cod  || '';
+    i.por         = m.por || '';
+    if(antes !== i.status+'|'+i.qtdComprada+'|'+i.precoPago+'|'+i.motivo+'|'+i.subNome) mudou = true;
+    // Comparação por tempo real, não por ordem alfabética do texto
+    if(Date.parse(m.atualizado_em) > Date.parse(state.desde)) state.desde = m.atualizado_em;
+  });
+  return mudou;
+}
+
+async function sincronizar(silencioso){
+  if(!state || !state.sala || sincronizando) return;
+  sincronizando = true;
+  try{
+    await empurrarExtras();          // o produto precisa existir antes da marcação dele
+    await empurrarFila();
+    const novos  = await puxarExtras();
+    const marcou = await puxarMarcacoes();
+    const mudou  = novos || marcou;
+    ultimoOk = Date.now();
+    salvarSync();
+    if(mudou && !silencioso) render(); else atualizarStatusSync();
+  }catch(e){
+    atualizarStatusSync();     // offline: segue marcando, a fila sobe depois
+  }finally{
+    sincronizando = false;
+  }
+}
+
+function iniciarSync(){
+  pararTimer();
+  timerSync = setInterval(()=>sincronizar(false), INTERVALO_SYNC);
+  sincronizar(false);
+}
+function pararTimer(){
+  if(timerSync){ clearInterval(timerSync); timerSync=null; }
+}
+
+function atualizarStatusSync(){
+  const el = $('#salaInfo');
+  if(!el) return;
+  if(!state || !state.sala){ el.hidden = true; return; }
+  el.hidden = false;
+  const pend = fila.length + filaEx.length;
+  let txt = 'Sala '+state.sala;
+  if(pend) txt += ' · '+pend+(pend===1?' marcação por enviar':' marcações por enviar');
+  else if(ultimoOk) txt += ' · sincronizado';
+  else txt += ' · conectando';
+  el.textContent = txt;
+  el.classList.toggle('off', !!pend || !ultimoOk);
+}
+
+/* Volta do bolso: sincroniza na hora, sem esperar o timer */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible' && state && state.sala) sincronizar(false);
+});
+window.addEventListener('online', ()=>{ if(state && state.sala) sincronizar(false); });
+
+/* ================= Catálogo de produtos ================= */
+/* Cadeia de consulta ao escanear:
+   1) a lista aberta agora   2) o catálogo próprio no Supabase   3) Open Food Facts */
+
+const CACHE_COD = {};   // memória da sessão, evita consultar o mesmo código duas vezes
+
+function itemPorCodigo(cod){
+  if(!state || !cod) return null;
+  const limpo = String(cod).replace(/\D/g,'');
+  return state.itens.find(i => String(i.cod||'').replace(/\D/g,'') === limpo) || null;
+}
+
+async function consultarCatalogo(cod){
+  try{
+    const r = await sb('/produtos?gtin=eq.'+encodeURIComponent(cod)+'&select=nome,marca&limit=1');
+    if(r && r.length) return { nome:r[0].nome, marca:r[0].marca||'', fonte:'catálogo' };
+  }catch(e){}
+  return null;
+}
+
+async function consultarOpenFoodFacts(cod){
+  try{
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), 8000);
+    const r = await fetch('https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(cod)+
+      '.json?fields=product_name,product_name_pt,brands,quantity', {signal:ctrl.signal});
+    clearTimeout(t);
+    if(!r.ok) return null;
+    const j = await r.json();
+    // A API responde 200 mesmo quando não acha: quem decide é o campo status.
+    if(!j || j.status !== 1 || !j.product) return null;
+    const p = j.product;
+    const nome = (p.product_name_pt || p.product_name || '').trim();
+    if(!nome) return null;
+    const partes = [nome];
+    if(p.brands)   partes.push(String(p.brands).split(',')[0].trim());
+    if(p.quantity) partes.push(String(p.quantity).trim());
+    return { nome: partes.join(' ').trim(), marca: p.brands||'', fonte:'Open Food Facts' };
+  }catch(e){ return null; }
+}
+
+async function buscarProduto(cod){
+  if(CACHE_COD[cod] !== undefined) return CACHE_COD[cod];
+  let achado = await consultarCatalogo(cod);
+  if(!achado) achado = await consultarOpenFoodFacts(cod);
+  CACHE_COD[cod] = achado;
+  return achado;
+}
+
+/* Alimenta o catálogo com os produtos da própria planilha, em segundo plano */
+async function alimentarCatalogo(itens){
+  const linhas = itens
+    .filter(i => i.cod && /^\d{6,14}$/.test(String(i.cod).replace(/\D/g,'')) && i.nome)
+    .map(i => ({ gtin: String(i.cod).replace(/\D/g,''), nome: i.nome }));
+  if(!linhas.length) return;
+  const vistos = {};
+  const unicas = linhas.filter(l => vistos[l.gtin] ? false : (vistos[l.gtin]=true));
+  try{
+    await sb('/produtos', {
+      method:'POST',
+      headers: sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body: JSON.stringify(unicas)
+    });
+  }catch(e){ /* catálogo é bônus: falhar aqui não atrapalha a compra */ }
+}
+
+/* ================= Leitor de código de barras ================= */
+let scanStream=null, scanTimer=null, scanAlvo=null, detector=null;
+
+function scannerDisponivel(){
+  return ('BarcodeDetector' in window) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+}
+
+async function montarDetector(){
+  if(detector) return detector;
+  const querid = ['ean_13','ean_8','upc_a','upc_e','code_128','itf','code_39'];
+  let suportados = querid;
+  try{
+    const disp = await BarcodeDetector.getSupportedFormats();
+    const inter = querid.filter(f => disp.includes(f));
+    if(inter.length) suportados = inter;
+  }catch(e){}
+  detector = new BarcodeDetector({formats: suportados});
+  return detector;
+}
+
+async function abrirScanner(alvo){
+  if(!scannerDisponivel()){
+    toast('Este navegador não lê código de barras — digite o número');
+    return;
+  }
+  scanAlvo = alvo;
+  $('#scanTopo').textContent = alvo==='busca' ? 'Escanear produto' : 'Escanear código de barras';
+  $('#scanMsg').textContent = 'Aponte para o código de barras';
+  $('#scanner').classList.add('open');
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: {ideal:'environment'}, width:{ideal:1280} }, audio:false
+    });
+    const v = $('#scanVideo');
+    v.srcObject = scanStream;
+    await v.play();
+    const det = await montarDetector();
+    scanTimer = setInterval(async()=>{
+      if(!scanStream) return;
+      try{
+        const achados = await det.detect(v);
+        if(achados && achados.length){
+          const cru = String(achados[0].rawValue||'').replace(/\D/g,'');
+          if(cru.length >= 6){
+            try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
+            fecharScanner();
+            aoLerCodigo(cru);
+          }
+        }
+      }catch(e){}
+    }, 300);
+  }catch(e){
+    $('#scanMsg').textContent = 'Não consegui abrir a câmera. Autorize o acesso nas permissões do navegador, ou digite o código na mão.';
+  }
+}
+
+function fecharScanner(){
+  if(scanTimer){ clearInterval(scanTimer); scanTimer=null; }
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  const v = $('#scanVideo'); if(v) v.srcObject=null;
+  $('#scanner').classList.remove('open');
+}
+
+async function aoLerCodigo(cod){
+  if(scanAlvo === 'novo'){
+    $('#novoCod').value = cod;
+    if(!$('#novoNome').value.trim()) await preencherNome(cod, '#novoNome');
+    return;
+  }
+  if(scanAlvo === 'troca'){
+    $('#trocaCod').value = cod;
+    if(!$('#trocaNome').value.trim()) await preencherNome(cod, '#trocaNome');
+    return;
+  }
+  // Escaneou pela busca: o produto já está na lista?
+  const item = itemPorCodigo(cod);
+  if(item){
+    if(item.status === 'pendente') abrirPegar(item.id, false);
+    else abrirDone(item.id);
+    return;
+  }
+  // Não está na lista: abre como produto novo, já com o código
+  abrirNovo();
+  $('#novoCod').value = cod;
+  toast('Fora da lista — cadastrando como produto novo');
+  await preencherNome(cod, '#novoNome');
+}
+
+async function preencherNome(cod, campo){
+  const el = $(campo);
+  const antes = el.placeholder;
+  el.placeholder = 'Procurando o nome…';
+  const achado = await buscarProduto(cod);
+  el.placeholder = antes;
+  if(achado && !el.value.trim()){
+    el.value = achado.nome;
+    toast('Nome encontrado no '+achado.fonte);
+  }else if(!achado){
+    toast('Código não encontrado — escreva o nome');
+    el.focus();
+  }
+}
+
+$('#scanFechar').onclick = fecharScanner;
+$('#scanManual').onclick = ()=>{
+  fecharScanner();
+  if(scanAlvo === 'novo')  $('#novoCod').focus();
+  else if(scanAlvo === 'troca') $('#trocaCod').focus();
+  else { $('#busca').focus(); }
+};
+
+/* ================= Importação ================= */
+function parsePreco(v){
+  if(v==null || v==='') return null;
+  if(typeof v==='number') return isFinite(v)? v : null;
+  const n = parseFloat(String(v).replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.'));
+  return isFinite(n)? n : null;
+}
+function importarArquivo(file){
+  if(typeof XLSX==='undefined'){
+    const el=$('#importErr');
+    el.textContent='O leitor de planilhas não carregou. Conecte-se à internet e recarregue a página para importar a lista.';
+    el.style.display='block';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      let nomeAba = wb.SheetNames.find(n=>/reposi/i.test(n)) || wb.SheetNames.find(n=>/lista/i.test(n)) || wb.SheetNames[0];
+      const linhas = XLSX.utils.sheet_to_json(wb.Sheets[nomeAba], {header:1, raw:true, defval:''});
+      // localizar linha de cabeçalho
+      let hIdx=-1, mapa={};
+      for(let i=0;i<Math.min(linhas.length,15);i++){
+        const cells = linhas[i].map(c=>norm(c));
+        const iProd = cells.findIndex(c=>c.includes('produto'));
+        const temQtdOutraCel = cells.some((c,j)=>j!==iProd && (c.includes('qtd')||c.includes('quant')));
+        if(iProd>=0 && temQtdOutraCel){
+          hIdx=i;
+          cells.forEach((c,j)=>{
+            if(!c) return;
+            if(mapa.cod==null && (c.includes('cod')||c.includes('barras'))) mapa.cod=j;
+            else if(mapa.nome==null && (c.includes('produto')||c.includes('descri')||c==='nome')) mapa.nome=j;
+            else if(mapa.qtd==null && (c.includes('qtd')||c.includes('quant'))) mapa.qtd=j;
+            else if(mapa.ultimo==null && c.includes('ultimo')) mapa.ultimo=j;
+            else if(mapa.menor==null && (c.includes('menor')||c.includes('minimo'))) mapa.menor=j;
+            else if(mapa.ultimo==null && c.includes('custo')) mapa.ultimo=j;
+          });
+          break;
+        }
+      }
+      if(hIdx<0 || mapa.nome==null) throw new Error('Não encontrei a coluna PRODUTO na planilha "'+nomeAba+'". Confira se usou o modelo ou a aba Lista de Reposição.');
+      const itens=[];
+      for(let i=hIdx+1;i<linhas.length;i++){
+        const L=linhas[i];
+        const nome=String(L[mapa.nome]||'').trim();
+        if(!nome) continue;
+        const qtd = mapa.qtd!=null ? (parseInt(L[mapa.qtd],10)||0) : 1;
+        if(qtd<=0) continue;
+        itens.push({
+          id: itens.length,
+          cod: mapa.cod!=null ? String(L[mapa.cod]||'').trim() : '',
+          nome, qtd,
+          ultimo: mapa.ultimo!=null ? parsePreco(L[mapa.ultimo]) : null,
+          menor:  mapa.menor!=null ? parsePreco(L[mapa.menor])  : null,
+          status:'pendente', qtdComprada:null, precoPago:null, motivo:'',
+          subNome:'', subCod:'', por:'', novo:false
+        });
+      }
+      if(!itens.length) throw new Error('A planilha foi lida, mas nenhum item com produto e quantidade foi encontrado na aba "'+nomeAba+'".');
+      state = {criadaEm: new Date().toISOString(), sala:null, nome:'', desde:'1970-01-01T00:00:00Z', itens};
+      fila = []; filaEx = [];
+      salvar();
+      alimentarCatalogo(itens);
+      mostrarLista();
+      $('#modoSub').textContent = itens.length+' itens prontos. Vai comprar com mais alguém?';
+      $('#modoNome').value = '';
+      abrirSheet('#sheetModo');
+    }catch(err){
+      const el=$('#importErr'); el.textContent=err.message; el.style.display='block';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ================= Render ================= */
+function contagens(){
+  const c={pendente:0,comprado:0,nao:0};
+  state.itens.forEach(i=>{
+    if(i.status==='substituido') c.comprado++;
+    else if(c[i.status]!=null) c[i.status]++;
+  });
+  return c;
+}
+function render(){
+  const c=contagens();
+  $('#nPend').textContent=c.pendente;
+  $('#nComp').textContent=c.comprado;
+  $('#nNao').textContent=c.nao;
+  $('#hdTotal').textContent=state.itens.length;
+  $('#hdFeitos').textContent=c.comprado+c.nao;
+  $('#barFill').style.width=(state.itens.length? (c.comprado+c.nao)/state.itens.length*100 : 0)+'%';
+  $('#hdData').textContent=new Date(state.criadaEm).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.tab===abaAtiva ? 'true':'false'));
+
+  const q=norm($('#busca').value);
+  const naAba = i => abaAtiva==='comprado'
+    ? (i.status==='comprado' || i.status==='substituido')
+    : i.status===abaAtiva;
+  const bate = i => !q || norm(i.nome).includes(q) || (i.cod||'').includes(q) || norm(i.subNome||'').includes(q);
+  const visiveis=state.itens.filter(i=>naAba(i) && bate(i));
+  const ul=$('#lista'); ul.innerHTML='';
+  visiveis.forEach(i=>ul.appendChild(linhaItem(i)));
+
+  const vazio=$('#vazio');
+  if(!visiveis.length){
+    vazio.hidden=false;
+    if(q){ vazio.innerHTML='Nenhum item encontrado para <b>"'+$('#busca').value+'"</b> nesta aba.'; }
+    else if(abaAtiva==='pendente' && c.pendente===0){ vazio.innerHTML='<b>Tudo conferido.</b><br>Todos os itens da lista foram resolvidos. Toque em <b>Exportar planilha da compra</b> aqui embaixo e envie o arquivo de volta.'; }
+    else if(abaAtiva==='comprado'){ vazio.innerHTML='Nada no carrinho ainda. Os itens marcados com <b>Peguei</b> aparecem aqui.'; }
+    else if(abaAtiva==='nao'){ vazio.innerHTML='Nenhum item deixado de lado. Os itens marcados com <b>Não levei</b> aparecem aqui, com o motivo.'; }
+    else { vazio.textContent=''; }
+  } else vazio.hidden=true;
+
+  $('#btnExport').disabled=false;
+  atualizarStatusSync();
+}
+function linhaItem(i){
+  const li=document.createElement('li');
+  li.className='item'+(i.status==='comprado'||i.status==='substituido'?' done':'')+(i.status==='nao'?' done skip':'');
+  const precos=[];
+  if(i.ultimo!=null) precos.push('Último pago: <b class="num">'+fmtBRL(i.ultimo)+'</b>');
+  if(i.menor!=null)  precos.push('Menor já pago: <b class="num preco-menor">'+fmtBRL(i.menor)+'</b>');
+  li.innerHTML=
+    '<div class="item-main">'+
+      '<div class="item-info">'+
+        '<div class="item-nome"></div>'+
+        (i.cod?'<div class="item-cod num"></div>':'')+
+        (precos.length?'<div class="item-precos">'+precos.join(' &nbsp;·&nbsp; ')+'</div>':'')+
+      '</div>'+
+      '<div class="item-qtd"><span class="q num">'+i.qtd+'</span><span class="u">un</span></div>'+
+    '</div>';
+  li.querySelector('.item-nome').textContent=i.nome;
+  if(i.cod) li.querySelector('.item-cod').textContent=i.cod;
+  if(i.novo){
+    const selo=document.createElement('span'); selo.className='selo-novo';
+    selo.textContent='Fora da lista';
+    li.querySelector('.item-info').prepend(selo);
+  }
+  if(i.status==='substituido'){
+    li.querySelector('.item-nome').classList.add('risco');
+    const t=document.createElement('div'); t.className='item-troca';
+    t.append('Levou no lugar: ');
+    const forte=document.createElement('b'); forte.textContent=i.subNome; t.appendChild(forte);
+    if(i.subCod) t.append(' · '+i.subCod);
+    li.querySelector('.item-info').appendChild(t);
+  }
+
+  if(i.status==='pendente'){
+    const a=document.createElement('div'); a.className='item-acoes';
+    const b1=document.createElement('button'); b1.className='btn btn-pegar'; b1.textContent='Peguei';
+    b1.onclick=()=>abrirPegar(i.id,false);
+    const b3=document.createElement('button'); b3.className='btn btn-trocar'; b3.textContent='Trocar';
+    b3.onclick=()=>abrirTroca(i.id,false);
+    const b2=document.createElement('button'); b2.className='btn btn-nao'; b2.textContent='Não levei';
+    b2.onclick=()=>abrirNao(i.id);
+    a.append(b1,b3,b2); li.appendChild(a);
+  }else{
+    const s=document.createElement('div'); s.className='item-status';
+    const tag=document.createElement('span');
+    if(i.status==='comprado'){
+      tag.className='tag tag-ok num';
+      tag.textContent='✓ '+i.qtdComprada+' un'+(i.precoPago!=null?' · '+fmtBRL(i.precoPago)+'/un':'');
+    }else if(i.status==='substituido'){
+      tag.className='tag tag-troca num';
+      tag.textContent='⇄ '+i.qtdComprada+' un'+(i.precoPago!=null?' · '+fmtBRL(i.precoPago)+'/un':'');
+    }else{
+      tag.className='tag tag-skip';
+      tag.textContent='Não levei — '+i.motivo;
+    }
+    const ed=document.createElement('button'); ed.className='btn-editar'; ed.textContent='Alterar';
+    ed.onclick=()=>abrirDone(i.id);
+    s.append(tag,ed); li.appendChild(s);
+    if(state.sala && i.por){
+      const p=document.createElement('div'); p.className='item-por';
+      p.textContent='por '+i.por;
+      li.appendChild(p);
+    }
+  }
+  return li;
+}
+
+/* ================= Sheets ================= */
+let sheetHist=false;
+
+function abrirSheet(id){
+  $('#backdrop').classList.add('open');
+  $(id).classList.add('open');
+  if(!sheetHist){
+    sheetHist=true;
+    try{ history.pushState({sheet:true},''); }catch(e){}
+  }
+}
+/* Fecha os painéis sem mexer no histórico do navegador */
+function limparSheets(){
+  $('#backdrop').classList.remove('open');
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
+  itemAtual=null; motivoSel=null; modoEdicao=false;
+}
+function fecharSheets(){
+  limparSheets();
+  if(sheetHist){
+    sheetHist=false;
+    try{ history.back(); }catch(e){}
+  }
+}
+/* Botão voltar do celular: fecha o painel aberto em vez de sair do app */
+window.addEventListener('popstate', ()=>{
+  if($('#scanner').classList.contains('open')) fecharScanner();
+  if(sheetHist){ sheetHist=false; limparSheets(); }
+});
+function abrirPegar(id,edicao){
+  itemAtual=id; modoEdicao=edicao;
+  const i=state.itens.find(x=>x.id===id);
+  $('#pegarTitulo').textContent=i.nome;
+  $('#pegarCod').textContent=i.cod||'';
+  $('#qtdVal').value=edicao&&i.qtdComprada!=null? i.qtdComprada : i.qtd;
+  $('#precoVal').value=edicao&&i.precoPago!=null? String(i.precoPago).replace('.',',') : '';
+  const refs=[];
+  if(i.ultimo!=null) refs.push('Último pago: '+fmtBRL(i.ultimo));
+  if(i.menor!=null) refs.push('menor já pago: '+fmtBRL(i.menor));
+  $('#precoRef').textContent=refs.length? 'Referência — '+refs.join(' · ') : '';
+  abrirSheet('#sheetPegar');
+}
+function abrirNao(id){
+  itemAtual=id;
+  const i=state.itens.find(x=>x.id===id);
+  $('#naoTitulo').textContent=i.nome;
+  motivoSel=null;
+  document.querySelectorAll('#motivoChips .chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  const out=$('#motivoOutro'); out.style.display='none'; out.value='';
+  $('#naoConfirmar').disabled=true;
+  abrirSheet('#sheetNao');
+}
+function abrirDone(id){
+  itemAtual=id;
+  const i=state.itens.find(x=>x.id===id);
+  $('#doneTitulo').textContent=i.nome;
+  if(i.status==='comprado'){
+    $('#doneInfo').textContent = 'No carrinho: '+i.qtdComprada+' un'+(i.precoPago!=null?' a '+fmtBRL(i.precoPago)+' cada':'');
+    $('#doneEditar').textContent = 'Alterar quantidade ou preço';
+  }else if(i.status==='substituido'){
+    $('#doneInfo').textContent = 'Trocado por "'+i.subNome+'" — '+i.qtdComprada+' un'+
+      (i.precoPago!=null?' a '+fmtBRL(i.precoPago)+' cada':'')+(i.motivo?' · '+i.motivo:'');
+    $('#doneEditar').textContent = 'Alterar a troca';
+  }else{
+    $('#doneInfo').textContent = 'Marcado como "Não levei" — '+i.motivo;
+  }
+  $('#doneEditar').style.display = (i.status==='comprado'||i.status==='substituido') ? 'block':'none';
+  abrirSheet('#sheetDone');
+}
+
+$('#qtdMenos').onclick=()=>{const e=$('#qtdVal'); e.value=Math.max(1,(parseInt(e.value,10)||1)-1);};
+$('#qtdMais').onclick=()=>{const e=$('#qtdVal'); e.value=(parseInt(e.value,10)||0)+1;};
+
+/* --- Steppers genéricos dos painéis novos --- */
+document.querySelectorAll('.step-menos').forEach(b=>{
+  b.onclick=()=>{ const e=$('#'+b.dataset.alvo); e.value=Math.max(1,(parseInt(e.value,10)||1)-1); };
+});
+document.querySelectorAll('.step-mais').forEach(b=>{
+  b.onclick=()=>{ const e=$('#'+b.dataset.alvo); e.value=(parseInt(e.value,10)||0)+1; };
+});
+
+/* --- Produto fora da lista --- */
+function abrirNovo(){
+  itemAtual=null;
+  $('#novoNome').value=''; $('#novoCod').value='';
+  $('#novoQtd').value='1'; $('#novoPreco').value='';
+  abrirSheet('#sheetNovo');
+}
+
+$('#novoConfirmar').onclick=()=>{
+  const nome=$('#novoNome').value.trim();
+  if(!nome){ toast('Escreva o nome do produto'); $('#novoNome').focus(); return; }
+  const q=parseInt($('#novoQtd').value,10);
+  if(!q || q<1){ toast('Informe a quantidade'); return; }
+  const cod=$('#novoCod').value.replace(/\D/g,'');
+  const jaTem = itemPorCodigo(cod);
+  if(cod && jaTem){
+    toast('Esse código já está na lista: '+jaTem.nome);
+    fecharSheets(); abrirPegar(jaTem.id,false);
+    return;
+  }
+  const item={
+    id: Date.now(), cod, nome, qtd:q, ultimo:null, menor:null, novo:true,
+    status:'comprado', qtdComprada:q, precoPago:parsePreco($('#novoPreco').value),
+    motivo:'', subNome:'', subCod:'', por: state.nome||''
+  };
+  state.itens.push(item);
+  if(!filaEx.includes(item.id)) filaEx.push(item.id);
+  enfileirar(item.id);
+  if(cod) alimentarCatalogo([item]);
+  salvar(); fecharSheets(); abaAtiva='comprado'; render(); sincronizar(true);
+  toast('"'+nome+'" adicionado ao carrinho');
+};
+
+/* --- Substituição de produto --- */
+function abrirTroca(id, edicao){
+  itemAtual=id; modoEdicao=!!edicao; motivoSel=null;
+  const i=state.itens.find(x=>x.id===id);
+  $('#trocaTitulo').textContent='No lugar de: '+i.nome;
+  $('#trocaNome').value = edicao ? (i.subNome||'') : '';
+  $('#trocaCod').value  = edicao ? (i.subCod||'')  : '';
+  $('#trocaQtd').value  = edicao && i.qtdComprada!=null ? i.qtdComprada : i.qtd;
+  $('#trocaPreco').value= edicao && i.precoPago!=null ? String(i.precoPago).replace('.',',') : '';
+  const refs=[];
+  if(i.ultimo!=null) refs.push('Último pago no original: '+fmtBRL(i.ultimo));
+  if(i.menor!=null)  refs.push('menor já pago: '+fmtBRL(i.menor));
+  $('#trocaRef').textContent = refs.length ? 'Referência — '+refs.join(' · ') : '';
+  document.querySelectorAll('#trocaChips .chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  const out=$('#trocaOutro'); out.style.display='none'; out.value='';
+  if(edicao && i.motivo){
+    const achou=[...document.querySelectorAll('#trocaChips .chip')].find(c=>c.dataset.motivo===i.motivo);
+    if(achou){ achou.setAttribute('aria-pressed','true'); motivoSel=i.motivo; }
+    else{ const outro=$('#trocaChips').querySelector('[data-motivo="__outro__"]');
+          outro.setAttribute('aria-pressed','true'); motivoSel='__outro__';
+          out.style.display='block'; out.value=i.motivo; }
+  }
+  abrirSheet('#sheetTroca');
+}
+
+document.querySelectorAll('#trocaChips .chip').forEach(ch=>{
+  ch.onclick=()=>{
+    motivoSel=ch.dataset.motivo;
+    document.querySelectorAll('#trocaChips .chip').forEach(c=>c.setAttribute('aria-pressed', c===ch?'true':'false'));
+    const out=$('#trocaOutro');
+    out.style.display = motivoSel==='__outro__' ? 'block':'none';
+    if(motivoSel==='__outro__') out.focus();
+  };
+});
+
+$('#trocaConfirmar').onclick=()=>{
+  const i=state.itens.find(x=>x.id===itemAtual); if(!i) return;
+  const nome=$('#trocaNome').value.trim();
+  if(!nome){ toast('Escreva qual produto você levou'); $('#trocaNome').focus(); return; }
+  const q=parseInt($('#trocaQtd').value,10);
+  if(!q || q<1){ toast('Informe a quantidade'); return; }
+  let m = motivoSel==='__outro__' ? $('#trocaOutro').value.trim() : (motivoSel||'');
+  i.status='substituido';
+  i.subNome=nome;
+  i.subCod=$('#trocaCod').value.replace(/\D/g,'');
+  i.qtdComprada=q;
+  i.precoPago=parsePreco($('#trocaPreco').value);
+  i.motivo=m;
+  i.por=state.nome||'';
+  enfileirar(i.id);
+  if(i.subCod) alimentarCatalogo([{cod:i.subCod, nome:nome}]);
+  salvar(); fecharSheets(); render(); sincronizar(true);
+};
+
+$('#pegarConfirmar').onclick=()=>{
+  const i=state.itens.find(x=>x.id===itemAtual); if(!i) return;
+  const q=parseInt($('#qtdVal').value,10);
+  if(!q || q<1){ toast('Informe a quantidade'); return; }
+  i.status='comprado'; i.qtdComprada=q; i.motivo='';
+  i.subNome=''; i.subCod='';
+  i.precoPago=parsePreco($('#precoVal').value);
+  i.por = state.nome || '';
+  enfileirar(i.id);
+  salvar(); fecharSheets(); render(); sincronizar(true);
+};
+
+document.querySelectorAll('#motivoChips .chip').forEach(ch=>{
+  ch.onclick=()=>{
+    motivoSel=ch.dataset.motivo;
+    document.querySelectorAll('#motivoChips .chip').forEach(c=>c.setAttribute('aria-pressed', c===ch?'true':'false'));
+    const out=$('#motivoOutro');
+    out.style.display = motivoSel==='__outro__' ? 'block':'none';
+    if(motivoSel==='__outro__') out.focus();
+    $('#naoConfirmar').disabled=false;
+  };
+});
+$('#naoConfirmar').onclick=()=>{
+  const i=state.itens.find(x=>x.id===itemAtual); if(!i) return;
+  let m = motivoSel==='__outro__' ? $('#motivoOutro').value.trim() : motivoSel;
+  if(!m){ toast('Escreva o motivo'); return; }
+  i.status='nao'; i.motivo=m; i.qtdComprada=null; i.precoPago=null;
+  i.subNome=''; i.subCod='';
+  i.por = state.nome || '';
+  enfileirar(i.id);
+  salvar(); fecharSheets(); render(); sincronizar(true);
+};
+$('#doneVoltar').onclick=()=>{
+  const i=state.itens.find(x=>x.id===itemAtual); if(!i) return;
+  i.status='pendente'; i.qtdComprada=null; i.precoPago=null; i.motivo='';
+  i.subNome=''; i.subCod='';
+  i.por = state.nome || '';
+  enfileirar(i.id);
+  salvar(); fecharSheets(); abaAtiva='pendente'; render(); sincronizar(true);
+};
+$('#doneEditar').onclick=()=>{
+  const id=itemAtual;
+  const i=state.itens.find(x=>x.id===id);
+  limparSheets();
+  if(i && i.status==='substituido') abrirTroca(id,true); else abrirPegar(id,true);
+};
+$('#backdrop').onclick=fecharSheets;
+document.querySelectorAll('[data-fechar]').forEach(b=>b.onclick=fecharSheets);
+
+/* ================= Exportação ================= */
+function exportarCSV(linhas, nomeBase){
+  const csv = linhas.map(l => l.map(cel=>{
+    const s = cel==null ? '' : String(cel);
+    return /[";\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=nomeBase+'.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Sem internet — exportei em CSV, abre no Excel igual');
+}
+
+function exportar(){
+  const c=contagens();
+  const nSub  = state.itens.filter(i=>i.status==='substituido').length;
+  const nNovo = state.itens.filter(i=>i.novo && i.status==='comprado').length;
+  const hoje=new Date();
+  const dataStr=hoje.toLocaleDateString('pt-BR');
+  const linhas=[['CÓD BARRAS','PRODUTO','QTD PEDIDA','STATUS','QTD COMPRADA','PREÇO PAGO (R$)','TOTAL (R$)','MOTIVO','LEVOU NO LUGAR','CÓD SUBSTITUTO','MARCADO POR']];
+  let total=0;
+  state.itens.forEach(i=>{
+    let st;
+    if(i.status==='comprado')          st = i.novo ? 'COMPRADO (FORA DA LISTA)' : 'COMPRADO';
+    else if(i.status==='substituido')  st = 'SUBSTITUÍDO';
+    else if(i.status==='nao')          st = 'NÃO LEVADO';
+    else                               st = 'PENDENTE';
+    const levou = (i.status==='comprado' || i.status==='substituido');
+    const tot = (levou && i.precoPago!=null) ? i.qtdComprada*i.precoPago : null;
+    if(tot!=null) total+=tot;
+    linhas.push([
+      i.cod, i.nome, i.novo?'':i.qtd, st,
+      levou ? i.qtdComprada : '',
+      i.precoPago!=null ? i.precoPago : '',
+      tot!=null ? tot : '',
+      i.motivo||'',
+      i.status==='substituido' ? (i.subNome||'') : '',
+      i.status==='substituido' ? (i.subCod||'')  : '',
+      i.por||''
+    ]);
+  });
+  const isoNome=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+  if(typeof XLSX==='undefined'){ exportarCSV(linhas,'Compras_'+isoNome); return; }
+
+  const ws=XLSX.utils.aoa_to_sheet(linhas);
+  ws['!cols']=[{wch:16},{wch:46},{wch:11},{wch:22},{wch:13},{wch:14},{wch:12},{wch:26},{wch:38},{wch:16},{wch:14}];
+  // código de barras como texto
+  for(let r=1;r<linhas.length;r++){
+    const ref='A'+(r+1);
+    if(ws[ref]){ ws[ref].t='s'; ws[ref].v=String(linhas[r][0]); }
+  }
+  const resumo=XLSX.utils.aoa_to_sheet([
+    ['RESUMO DA COMPRA',''],
+    ['Data da exportação',dataStr],
+    ['Itens na lista',state.itens.length - nNovo],
+    ['Comprados',c.comprado - nSub - nNovo],
+    ['Substituídos por outro produto',nSub],
+    ['Comprados fora da lista',nNovo],
+    ['Não levados',c.nao],
+    ['Pendentes',c.pendente],
+    ['Total gasto (itens com preço informado)',total],
+    ['Código da sala',state.sala||'—'],
+  ]);
+  resumo['!cols']=[{wch:38},{wch:16}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Compras');
+  XLSX.utils.book_append_sheet(wb,resumo,'Resumo');
+  const iso=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+  XLSX.writeFile(wb,'Compras_'+iso+'.xlsx');
+  toast('Planilha exportada — envie o arquivo de volta');
+}
+$('#btnExport').onclick=exportar;
+$('#menuExportar').onclick=()=>{fecharSheets(); exportar();};
+
+/* ================= Menu / nova lista ================= */
+$('#btnMenu').onclick=()=>{
+  const emDupla = !!(state && state.sala);
+  $('#menuConvidar').hidden   = !emDupla;
+  $('#menuAbrirDupla').hidden = emDupla;
+  abrirSheet('#sheetMenu');
+};
+$('#menuNova').onclick=async()=>{
+  if(!confirm('Apagar a lista atual e todas as marcações? Essa ação não pode ser desfeita.')) return;
+  pararTimer();
+  await limparSalvo();
+  state=null; fila=[]; filaEx=[]; ultimoOk=null;
+  fecharSheets(); mostrarImport();
+};
+
+/* ================= Navegação ================= */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{abaAtiva=t.dataset.tab; render();});
+$('#busca').addEventListener('input',render);
+$('#btnEscolher').onclick=()=>$('#fileInput').click();
+$('#fileInput').addEventListener('change',e=>{
+  if(e.target.files && e.target.files[0]) importarArquivo(e.target.files[0]);
+  e.target.value='';
+});
+
+function mostrarImport(){ $('#telaImport').hidden=false; $('#telaLista').hidden=true; $('#footbar').style.display='none'; }
+function mostrarLista(){ $('#telaImport').hidden=true; $('#telaLista').hidden=false; $('#footbar').style.display='block'; abaAtiva='pendente'; $('#busca').value=''; render(); }
+
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ================= Compra em dupla ================= */
+function mostrarConvite(codigo){
+  $('#conviteCodigo').textContent = codigo;
+  abrirSheet('#sheetConvite');
+}
+
+$('#modoSozinho').onclick=()=>{
+  state.nome = $('#modoNome').value.trim();
+  salvar(); fecharSheets(); render();
+};
+
+$('#modoDupla').onclick=async()=>{
+  const nome = $('#modoNome').value.trim();
+  if(!nome){ toast('Escreva seu nome primeiro'); $('#modoNome').focus(); return; }
+  const b = $('#modoDupla'); b.disabled=true; b.textContent='Criando sala…';
+  try{
+    const codigo = await criarSala(nome);
+    limparSheets();
+    mostrarConvite(codigo);
+    render();
+  }catch(e){
+    toast('Não consegui criar a sala: '+e.message);
+  }finally{
+    b.disabled=false; b.textContent='Comprar em dupla — gerar código';
+  }
+};
+
+$('#conviteCopiar').onclick=async()=>{
+  const c = $('#conviteCodigo').textContent;
+  try{ await navigator.clipboard.writeText(c); toast('Código '+c+' copiado'); }
+  catch(e){ toast('Código: '+c); }
+};
+
+$('#btnEntrar').onclick=async()=>{
+  const codigo = $('#entrarCodigo').value.trim().toUpperCase();
+  const nome   = $('#entrarNome').value.trim();
+  const err = $('#importErr');
+  if(!codigo){ $('#entrarCodigo').focus(); return; }
+  if(!nome){ toast('Escreva seu nome'); $('#entrarNome').focus(); return; }
+  const b = $('#btnEntrar'); b.disabled=true; b.textContent='Entrando…';
+  err.style.display='none';
+  try{
+    const n = await entrarSala(codigo, nome);
+    mostrarLista();
+    toast('Conectado — '+n+' itens');
+  }catch(e){
+    err.textContent = e.message;
+    err.style.display='block';
+  }finally{
+    b.disabled=false; b.textContent='Entrar na compra';
+  }
+};
+
+$('#menuConvidar').onclick=()=>{ limparSheets(); mostrarConvite(state.sala); };
+
+$('#menuAbrirDupla').onclick=()=>{
+  limparSheets();
+  $('#modoSub').textContent = 'Gerar um código para a outra pessoa acompanhar esta lista.';
+  $('#modoNome').value = state.nome || '';
+  abrirSheet('#sheetModo');
+};
+
+$('#btnNovo').onclick=()=>abrirNovo();
+$('#btnScanBusca').onclick=()=>abrirScanner('busca');
+$('#btnScanNovo').onclick=()=>abrirScanner('novo');
+$('#btnScanTroca').onclick=()=>abrirScanner('troca');
+
+$('#menuBackup').onclick=()=>{ fecharSheets(); baixarBackup(); };
+$('#menuRestaurar').onclick=()=>{ fecharSheets(); $('#backupInput').click(); };
+$('#importRestaurar').onclick=()=>$('#backupInput').click();
+$('#backupInput').addEventListener('change',e=>{
+  if(e.target.files && e.target.files[0]) restaurarBackup(e.target.files[0]);
+  e.target.value='';
+});
+
+(async function init(){
+  persistOK = temLocal();
+  const tem = await carregar();
+  if(tem && state && state.itens && state.itens.length){
+    if(!Array.isArray(fila)) fila = [];
+    mostrarLista();
+    salvarSync();
+    if(state.sala) iniciarSync();
+  } else {
+    mostrarImport();
+  }
+  atualizarAvisoPersistencia();
+  if(!persistOK) toast('Este aparelho não salva sozinho — use o backup');
+})();
+</script>
+</body>
+</html>
